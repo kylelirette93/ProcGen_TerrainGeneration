@@ -6,6 +6,12 @@ public class MeshGenerator : MonoBehaviour
     [SerializeField] int xSize;
     [SerializeField] int zSize;
 
+    // Gradient changes based on height.
+    [SerializeField] Gradient gradient;
+
+    // 
+    Color[] meshColors;
+
     // Position of each vertex of mesh.
     Vector3[] vertices;
 
@@ -65,7 +71,15 @@ public class MeshGenerator : MonoBehaviour
             }
             // Incrementing vert here to stop mesh generation on edges.
             vert++;
-        }       
+        }
+        
+        // Evaluate the gradient color based on height at a specific vertice.
+        meshColors = new Color[vertices.Length];
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            Color vertColor = gradient.Evaluate(vertices[i].y);
+            meshColors[i] = vertColor;
+        }
     }
 
     private float CalculateHeight(int x, int z)
@@ -85,6 +99,7 @@ public class MeshGenerator : MonoBehaviour
         mesh.Clear();
         mesh.vertices = vertices;
         mesh.triangles = triangles;
+        mesh.colors = meshColors;
         mesh.RecalculateNormals();
     }
 }
