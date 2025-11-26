@@ -34,6 +34,11 @@ public class MeshGenerator : MonoBehaviour
 
     private void Start()
     {
+        GenerateTerrain();
+    }
+
+    private void GenerateTerrain()
+    {
         GenerateMesh();
         CreateShape();
         CreateTriangles();
@@ -177,4 +182,15 @@ public class MeshGenerator : MonoBehaviour
         mesh.RecalculateTangents();
         gameObject.transform.localScale = new Vector3(meshScale, meshScale, meshScale);
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        // Regenerates mesh when editor values change.
+        if (Application.isPlaying && mesh != null)
+        {
+            GenerateTerrain();
+        }
+    }
+#endif
 }

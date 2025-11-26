@@ -410,6 +410,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   xSize: 15
   zSize: 15
+  meshScale: 38
+  heightCurve:
+    serializedVersion: 2
+    m_Curve: []
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   gradient:
     serializedVersion: 2
     key0: {r: 0, g: 0.3584906, b: 0.06583569, a: 1}
@@ -440,6 +447,10 @@ MonoBehaviour:
     m_ColorSpace: -1
     m_NumColorKeys: 5
     m_NumAlphaKeys: 2
+  noiseScale: 0
+  octaves: 0
+  lacunarity: 0
+  seed: 0
 --- !u!4 &648265069
 Transform:
   m_ObjectHideFlags: 0
