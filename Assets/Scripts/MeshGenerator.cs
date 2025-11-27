@@ -13,7 +13,7 @@ public class MeshGenerator : MonoBehaviour
     [SerializeField, Range(0, 100f)] private float heightMultiplier;
 
     [Header("Water Settings")]
-    [SerializeField, Range(0f, 0.2f)] private float waterLevelOffset;
+    [SerializeField, Range(0f, 6f)] private float waterLevel;
 
     [Header("Noise Settings")]
     [SerializeField, Range(0.001f, 1f)] float noiseScale;
@@ -21,6 +21,7 @@ public class MeshGenerator : MonoBehaviour
     [SerializeField, Range(1f, 4f)] float lacunarity;
     [SerializeField, Range(0f, 1f)] float persistence;
     [SerializeField] int seed;
+
 
     #region Mesh Data
     // Position of each vertex of mesh.
@@ -129,9 +130,6 @@ public class MeshGenerator : MonoBehaviour
 
     private Vector2[] GetOffsetSeed()
     {
-        // Get random seed for variation.
-        seed = UnityEngine.Random.Range(0, 1000);
-
         System.Random prng = new System.Random(seed);
         // Creates an offset for each octave to be applied to noise.
         Vector2[] octaveOffsets = new Vector2[octaves];
@@ -192,25 +190,30 @@ public class MeshGenerator : MonoBehaviour
         Color grass = new Color(0.2f, 0.6f, 0.1f);
         Color sand = new Color(0.85f, 0.75f, 0.55f);
         Color water = new Color(0.2f, 0.4f, 0.6f);
-        if (height > 0.8f)
+        Color deepWater = new Color(0.1f, 0.2f, 0.4f);
+
+        float actualHeight = Mathf.Lerp(minimumTerrainHeight, maximumTerrainHeight, height);
+
+        if (actualHeight < waterLevel)
         {
-            return Color.Lerp(mountain, snow, (height - 0.8f) / 0.2f); // Blend to white for snow.
+            float waterDepth = Mathf.InverseLerp(waterLevel, minimumTerrainHeight, actualHeight);
+            return Color.Lerp(water, deepWater, waterDepth);
         }
-        else if (height > 0.65f)
+        else if (height > 0.7f)
         {
-            return Color.Lerp(grass, mountain, (height - 0.65f) / 0.15f); // Blend to brown for mountains.
+            return Color.Lerp(mountain, snow, (height - 0.7f) / 0.15f); // Blend to snow.
         }
         else if (height > 0.4f)
         {
-            return Color.Lerp(sand, grass, (height - 0.4f) / 0.25f); // Blend to green for grass.
+            return Color.Lerp(grass, mountain, (height - 0.4f) / 0.25f); // Blend to mountain.
         }
-        else if (height > 0.2f)
+        else if (height > 0.1f)
         {
-            return Color.Lerp(water, sand, (height - 0.2f) / 0.2f); // Blend to yellow for sand.
+            return Color.Lerp(sand, grass, (height - 0.1f) / 0.2f); // Blend to green for grass.
         }
         else
         {
-            return Color.Lerp(new Color(0f, 0f, 0.5f), water, height / 0.2f); // Blend to dark blue for deep water.
+            return sand; // Beach color above water.
         }
     }
 
@@ -251,7 +254,6 @@ public class MeshGenerator : MonoBehaviour
             // Offset edge heights to create water level.
             finalHeight *= 0.2f;
         }
-        finalHeight -= waterLevelOffset;
         return finalHeight;
     }
 
@@ -274,24 +276,19 @@ public class MeshGenerator : MonoBehaviour
         if (Application.isPlaying && mesh != null)
         {
             bool fullRegen = previousHeightMultiplier != heightMultiplier || previousOctaves != octaves || noiseScale != previousNoiseScale
-                || previousWidth != width || previousDepth != depth || previousLacunarity != lacunarity || previousMeshScale != meshScale;
-            bool needsColor = previousWaterLevelOffset != waterLevelOffset;
+                || previousWidth != width || previousDepth != depth || previousLacunarity != lacunarity || previousMeshScale != meshScale || previousWaterLevelOffset != waterLevel;
             if (fullRegen)
             {
                 GenerateTerrain();
             }
-            else if (needsColor)
-            {
-                CreateColors();
-                mesh.colors = meshColors;
-            }
 
-            previousWaterLevelOffset = waterLevelOffset;
+            previousWaterLevelOffset = waterLevel;
             previousHeightMultiplier = heightMultiplier;
             previousOctaves = octaves;
             previousNoiseScale = noiseScale;
             previousDepth = depth;
             previousWidth = width;
+            previousPersistence = persistence;
         }
     }
 #endif
