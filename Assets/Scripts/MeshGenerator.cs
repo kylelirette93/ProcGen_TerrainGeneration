@@ -22,6 +22,11 @@ public class MeshGenerator : MonoBehaviour
     [SerializeField, Range(0f, 1f)] float persistence;
     [SerializeField] int seed;
 
+    [Header("Map Falloff Settings")]
+    [SerializeField, Range(0f, 1f)] private float fallOffStrength;
+    [SerializeField, Range(0f, 1f)] private float fallOffStart;
+    private AnimationCurve fallOffCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+
 
     #region Mesh Data
     // Position of each vertex of mesh.
@@ -42,6 +47,8 @@ public class MeshGenerator : MonoBehaviour
     int previousMeshScale;
     float previousLacunarity;
     float previousPersistence;
+    float previousFallOffStart;
+    float previousFallOffStrength;
     #endregion
 
     private void Awake()
@@ -192,6 +199,7 @@ public class MeshGenerator : MonoBehaviour
         Color water = new Color(0.2f, 0.4f, 0.6f);
         Color deepWater = new Color(0.1f, 0.2f, 0.4f);
 
+        // Lerp between min and max height to get actual height.
         float actualHeight = Mathf.Lerp(minimumTerrainHeight, maximumTerrainHeight, height);
 
         if (actualHeight < waterLevel)
@@ -222,9 +230,6 @@ public class MeshGenerator : MonoBehaviour
         float amplitude = 2f;
         float frequency = 1;
         float height = 0;
-        
-        // If x or z is 0 it's at edge of mesh.
-        bool isEdge = (x == 0 || x == width || z == 0 || z == depth);
 
         // Max dimension for consistent terrain scaling.
         float maxDimension = Mathf.Max(width, depth);
@@ -249,10 +254,21 @@ public class MeshGenerator : MonoBehaviour
 
         float finalHeight = height * heightMultiplier;
 
-        if (isEdge)
+        // Calculate distance from center.
+        float centerX = width / 2f;
+        float centerZ = depth / 2f;
+        float distanceX = Mathf.Abs(x - centerX) / centerX;
+        float distanceZ = Mathf.Abs(z - centerZ) / centerZ;
+        float distanceFromCenter = Mathf.Max(distanceX, distanceZ);
+
+        // Apply falloff at edges of terrain.
+        if (distanceFromCenter > fallOffStart)
         {
-            // Offset edge heights to create water level.
-            finalHeight *= 0.2f;
+            float fallOff = (distanceFromCenter - fallOffStart) / (1f - fallOffStart);
+            fallOff = Mathf.Clamp01(fallOff);
+
+            float fallOffValue = 1f - (fallOffCurve.Evaluate(fallOff) * fallOffStrength);
+            finalHeight *= fallOffValue;
         }
         return finalHeight;
     }
@@ -276,7 +292,9 @@ public class MeshGenerator : MonoBehaviour
         if (Application.isPlaying && mesh != null)
         {
             bool fullRegen = previousHeightMultiplier != heightMultiplier || previousOctaves != octaves || noiseScale != previousNoiseScale
-                || previousWidth != width || previousDepth != depth || previousLacunarity != lacunarity || previousMeshScale != meshScale || previousWaterLevelOffset != waterLevel;
+                || previousWidth != width || previousDepth != depth || previousLacunarity != lacunarity ||
+                previousMeshScale != meshScale || previousFallOffStart != fallOffStart ||
+                previousFallOffStrength != fallOffStrength || previousPersistence != persistence;
             if (fullRegen)
             {
                 GenerateTerrain();
@@ -289,6 +307,9 @@ public class MeshGenerator : MonoBehaviour
             previousDepth = depth;
             previousWidth = width;
             previousPersistence = persistence;
+            previousLacunarity = lacunarity;
+            previousFallOffStart = fallOffStart;
+            previousFallOffStrength = fallOffStrength;
         }
     }
 #endif
