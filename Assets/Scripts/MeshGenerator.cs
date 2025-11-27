@@ -4,24 +4,24 @@ public class MeshGenerator : MonoBehaviour
 {
     // Size of mesh.
     [Header("Mesh Size Settings")]
-    [SerializeField] int xSize;
-    [SerializeField] int zSize;
-    [SerializeField] int meshScale;
+    [SerializeField, Range(15, 500)] private int width;
+    [SerializeField, Range(15, 500)] private int depth;
+    [SerializeField, Min(1)] private int meshScale;
 
-    [Header("Terrain Settings")]
-    float minimumTerrainHeight;
-    float maximumTerrainHeight;
-    [SerializeField] AnimationCurve heightCurve;
+    [Header("Height Settings")]
+    private AnimationCurve heightCurve;
+    [SerializeField, Range(0, 100f)] private float heightMultiplier;
 
     // Gradient changes based on height.
     [Header("Color Settings")]
     Color[] meshColors;
-    [SerializeField] Gradient gradient;
+    Gradient heightGradient;
 
     [Header("Noise Settings")]
-    [SerializeField] float noiseScale;
-    [SerializeField] int octaves;
-    [SerializeField] float lacunarity;
+    [SerializeField, Range(0.001f, 1f)] float noiseScale;
+    [SerializeField, Range(1, 16)] int octaves;
+    [SerializeField, Range(1f, 4f)] float lacunarity;
+    [SerializeField, Range(0f, 1f)] float persistence;
     [SerializeField] int seed;
 
     #region Mesh Data
@@ -30,17 +30,80 @@ public class MeshGenerator : MonoBehaviour
     // Triangles that connect the mesh.
     int[] triangles;
     private Mesh mesh;
+    float minimumTerrainHeight;
+    float maximumTerrainHeight;
     #endregion
 
+    private void Awake()
+    {
+        InitializeDefaultTerrainColor();
+        InitializeDefaultTerrainHeight();
+    }
     private void Start()
     {
         GenerateTerrain();
+    }
+
+    private void InitializeDefaultTerrainColor()
+    {
+        if (heightGradient == null || heightGradient.colorKeys.Length == 0)
+        {
+            // Default gradient for terrain.
+            heightGradient = new Gradient();
+            GradientColorKey[] colorKeys = new GradientColorKey[5];
+            colorKeys[0] = new GradientColorKey(new Color(0.2f, 0.5f, 0.8f), 0f); // Water
+            colorKeys[1] = new GradientColorKey(new Color(0.3f, 0.5f, 0.2f), 0.4f); // Green
+            colorKeys[2] = new GradientColorKey(new Color(0.5f, 0.4f, 0.3f), 0.7f); // Mountain
+            colorKeys[4] = new GradientColorKey(new Color(0.9f, 0.9f, 0.9f), 1f); // Snow
+
+            GradientAlphaKey[] alphaKeys = new GradientAlphaKey[2];
+            alphaKeys[0] = new GradientAlphaKey(0.3f, 0f);
+            alphaKeys[1] = new GradientAlphaKey(1f, 1f);
+
+            heightGradient.SetKeys(colorKeys, alphaKeys);
+        }
+    }
+
+    private void InitializeDefaultTerrainHeight()
+    {
+        if (heightCurve == null || heightCurve.length == 0)
+        {
+            heightCurve = new AnimationCurve();
+            heightCurve.AddKey(0f, 0f);
+            heightCurve.AddKey(0.3f, 0.05f);
+            heightCurve.AddKey(0.7f, 0.4f);
+            heightCurve.AddKey(1f, 1f);
+
+            // Smooth tangetns to transition between curves.
+            for (int i = 0; i < heightCurve.length; i++)
+            {
+                heightCurve.SmoothTangents(i, 0f);
+            }
+        }
     }
 
     private void GenerateTerrain()
     {
         GenerateMesh();
         CreateShape();
+        #region Determine Min/Max Height
+        // Determine min and max height for color heightGradient.
+        float actualMinHeight = float.MaxValue;
+        float actualMaxHeight = float.MinValue;
+        foreach (var v in vertices)
+        {
+            if (v.y < actualMinHeight)
+            {
+                actualMinHeight = v.y;
+                minimumTerrainHeight = actualMinHeight;
+            }
+            if (v.y > actualMaxHeight)
+            {
+                actualMaxHeight = v.y;
+                maximumTerrainHeight = actualMaxHeight;
+            }
+        }
+        #endregion
         CreateTriangles();
         CreateColors();
         UpdateMesh();
@@ -57,16 +120,15 @@ public class MeshGenerator : MonoBehaviour
     {
         Vector2[] octaveOffsets = GetOffsetSeed();
         // Amount of vertices is determined by size.
-        vertices = new Vector3[(xSize + 1) * (zSize + 1)];
+        vertices = new Vector3[(width + 1) * (depth + 1)];
 
         // Assign positions to vertices.
-        for (int i = 0, z = 0; z <= zSize; z++)
+        for (int i = 0, z = 0; z <= depth; z++)
         {
-            for (int x = 0; x <= xSize; x++) 
+            for (int x = 0; x <= width; x++) 
             {
                 // Calculate height of each vertex.
                 float vertHeight = CalculateHeight(x, z, octaveOffsets);    
-                SetTerrainHeights(vertHeight);
                 vertices[i] = new Vector3(x, vertHeight, z);
                 i++;
             }
@@ -94,20 +156,20 @@ public class MeshGenerator : MonoBehaviour
     private void CreateTriangles()
     {
         // Each triangle has 3 vertices and each square has 2 triangles.
-        triangles = new int[xSize * zSize * 6];
+        triangles = new int[width * depth * 6];
         int vert = 0;
         int tris = 0;
 
-        for (int z = 0; z < zSize; z++)
+        for (int z = 0; z < depth; z++)
         {
-            for (int x = 0; x < xSize; x++)
+            for (int x = 0; x < width; x++)
             {
                 triangles[tris + 0] = vert + 0; // Bottom left.
-                triangles[tris + 1] = vert + xSize + 1; // Top left.
+                triangles[tris + 1] = vert + width + 1; // Top left.
                 triangles[tris + 2] = vert + 1; // Bottom right.
                 triangles[tris + 3] = vert + 1; // Bottom right.
-                triangles[tris + 4] = vert + xSize + 1; // Top left.
-                triangles[tris + 5] = vert + xSize + 2; // Top right.
+                triangles[tris + 4] = vert + width + 1; // Top left.
+                triangles[tris + 5] = vert + width + 2; // Top right.
                 vert++;
                 tris += 6;
             }
@@ -118,25 +180,25 @@ public class MeshGenerator : MonoBehaviour
 
     private void CreateColors()
     {
-        // Evaluate the gradient color based on height at a specific vertice.
+        // Evaluate the heightGradient color based on height at a specific vertice.
         meshColors = new Color[vertices.Length];
         for (int z = 0; z < vertices.Length; z++)
         {
             // Get's normalized height between min and max values.
             float height = Mathf.InverseLerp(minimumTerrainHeight, maximumTerrainHeight, vertices[z].y);
-            // Evaluats gradient based on height.
-            meshColors[z] = gradient.Evaluate(height);
+            height = Mathf.Clamp01(height);
+            // Evaluats heightGradient based on height.
+            meshColors[z] = heightGradient.Evaluate(height);
         }
     }
 
     private float CalculateHeight(int x, int z, Vector2[] octaveOffsets)
     {
-        float amplitude = 20f;
-        float frequency = 2;
-        float persistence = 0.5f;
+        float amplitude = 2f;
+        float frequency = 1;
         float height = 0;
         // If at the edges, height should be 0.
-        if (x == 0 || x == xSize || z == 0 || z == zSize)
+        if (x == 0 || x == width || z == 0 || z == depth)
         {
             return height;
         }
@@ -144,30 +206,18 @@ public class MeshGenerator : MonoBehaviour
         for (int i = 0; i < octaves; i++)
         {
             // Using an octave offset for varying terrain.
-            float mapZ = z / noiseScale * frequency * octaveOffsets[i].y;
-            float mapX = x / noiseScale * frequency * octaveOffsets[i].x;
+            float sampleX = (x / (float)width) / noiseScale * frequency + octaveOffsets[i].x;
+            float sampleZ = (z / (float)depth) / noiseScale * frequency + octaveOffsets[i].y;
 
-            float perlinValue = (Mathf.PerlinNoise(mapZ, mapX)) * 2 - 1;
-            height += heightCurve.Evaluate(perlinValue) * amplitude;
-            // Lacunarity increases frequency each octave.
-            frequency *= lacunarity;
+            float perlinValue = (Mathf.PerlinNoise(sampleX, sampleZ)) * 2 - 1;
+            // Normalize perlin value for height curve.
+            height += heightCurve.Evaluate((perlinValue + 1f) / 2f) * amplitude;
             // Amplitude decreases each octave.
             amplitude *= persistence;
+            // Lacunarity increases frequency each octave.
+            frequency *= lacunarity;
         }
-        return height;
-    }
-
-    private void SetTerrainHeights(float height)
-    {
-        // Set the min and max height for color gradient.
-        if (height > maximumTerrainHeight)
-        {
-            maximumTerrainHeight = height;
-        }
-        if (height < minimumTerrainHeight)
-        {
-            minimumTerrainHeight = height;
-        }
+        return height * heightMultiplier;
     }
 
   
