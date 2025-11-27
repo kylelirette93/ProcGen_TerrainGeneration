@@ -12,10 +12,13 @@ public class MeshGenerator : MonoBehaviour
     private AnimationCurve heightCurve;
     [SerializeField, Range(0, 100f)] private float heightMultiplier;
 
-    // Gradient changes based on height.
+    // Gradient changes based on normalizedHeight.
     [Header("Color Settings")]
     Color[] meshColors;
     Gradient heightGradient;
+
+    [Header("Water Settings")]
+    [SerializeField, Range(0f, 0.4f)] private float waterLevelOffset;
 
     [Header("Noise Settings")]
     [SerializeField, Range(0.001f, 1f)] float noiseScale;
@@ -32,6 +35,15 @@ public class MeshGenerator : MonoBehaviour
     private Mesh mesh;
     float minimumTerrainHeight;
     float maximumTerrainHeight;
+    float previousHeightMultiplier;
+    int previousOctaves;
+    float previousNoiseScale;
+    float previousWaterLevelOffset;
+    int previousWidth;
+    int previousDepth;
+    int previousMeshScale;
+    float previousLacunarity;
+    float previousPersistence;
     #endregion
 
     private void Awake()
@@ -70,8 +82,8 @@ public class MeshGenerator : MonoBehaviour
         {
             heightCurve = new AnimationCurve();
             heightCurve.AddKey(0f, 0f);
-            heightCurve.AddKey(0.3f, 0.05f);
-            heightCurve.AddKey(0.7f, 0.4f);
+            heightCurve.AddKey(0.4f, 0.02f);
+            heightCurve.AddKey(0.6f, 0.2f);
             heightCurve.AddKey(1f, 1f);
 
             // Smooth tangetns to transition between curves.
@@ -87,7 +99,7 @@ public class MeshGenerator : MonoBehaviour
         GenerateMesh();
         CreateShape();
         #region Determine Min/Max Height
-        // Determine min and max height for color heightGradient.
+        // Determine min and max normalizedHeight for color heightGradient.
         float actualMinHeight = float.MaxValue;
         float actualMaxHeight = float.MinValue;
         foreach (var v in vertices)
@@ -127,7 +139,7 @@ public class MeshGenerator : MonoBehaviour
         {
             for (int x = 0; x <= width; x++) 
             {
-                // Calculate height of each vertex.
+                // Calculate normalizedHeight of each vertex.
                 float vertHeight = CalculateHeight(x, z, octaveOffsets);    
                 vertices[i] = new Vector3(x, vertHeight, z);
                 i++;
@@ -180,15 +192,23 @@ public class MeshGenerator : MonoBehaviour
 
     private void CreateColors()
     {
-        // Evaluate the heightGradient color based on height at a specific vertice.
+        // Evaluate the heightGradient color based on normalizedHeight at a specific vertice.
         meshColors = new Color[vertices.Length];
+
+        float waterHeight = 0f;
         for (int z = 0; z < vertices.Length; z++)
         {
-            // Get's normalized height between min and max values.
-            float height = Mathf.InverseLerp(minimumTerrainHeight, maximumTerrainHeight, vertices[z].y);
-            height = Mathf.Clamp01(height);
-            // Evaluats heightGradient based on height.
-            meshColors[z] = heightGradient.Evaluate(height);
+            float vertHeight = vertices[z].y;
+
+            if (vertHeight <= waterHeight)
+            {
+                meshColors[z] = heightGradient.Evaluate(0f);
+            }
+            // Get's normalized normalizedHeight between min and max values.
+            float normalizedHeight = Mathf.InverseLerp(waterHeight, maximumTerrainHeight, vertices[z].y);
+            normalizedHeight = Mathf.Clamp01(normalizedHeight);
+            // Evaluats heightGradient based on normalizedHeight.
+            meshColors[z] = heightGradient.Evaluate(normalizedHeight);
         }
     }
 
@@ -197,11 +217,10 @@ public class MeshGenerator : MonoBehaviour
         float amplitude = 2f;
         float frequency = 1;
         float height = 0;
-        // If at the edges, height should be 0.
-        if (x == 0 || x == width || z == 0 || z == depth)
-        {
-            return height;
-        }
+        
+        // If x or z is 0 it's at edge of mesh.
+        bool isEdge = (x == 0 || x == width || z == 0 || z == depth);
+
 
         for (int i = 0; i < octaves; i++)
         {
@@ -210,14 +229,23 @@ public class MeshGenerator : MonoBehaviour
             float sampleZ = (z / (float)depth) / noiseScale * frequency + octaveOffsets[i].y;
 
             float perlinValue = (Mathf.PerlinNoise(sampleX, sampleZ)) * 2 - 1;
-            // Normalize perlin value for height curve.
+            // Normalize perlin value for normalizedHeight curve.
             height += heightCurve.Evaluate((perlinValue + 1f) / 2f) * amplitude;
             // Amplitude decreases each octave.
             amplitude *= persistence;
             // Lacunarity increases frequency each octave.
             frequency *= lacunarity;
         }
-        return height * heightMultiplier;
+
+        float finalHeight = height * heightMultiplier;
+
+        if (isEdge)
+        {
+            // Offset edge heights to create water level.
+            finalHeight *= 0.3f;
+        }
+        finalHeight -= waterLevelOffset;
+        return finalHeight;
     }
 
   
@@ -229,8 +257,9 @@ public class MeshGenerator : MonoBehaviour
         mesh.triangles = triangles;
         mesh.colors = meshColors;
         mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
         mesh.RecalculateTangents();
-        gameObject.transform.localScale = new Vector3(meshScale, meshScale, meshScale);
+        gameObject.transform.localScale = Vector3.one * meshScale;
     }
 
 #if UNITY_EDITOR
@@ -239,7 +268,23 @@ public class MeshGenerator : MonoBehaviour
         // Regenerates mesh when editor values change.
         if (Application.isPlaying && mesh != null)
         {
-            GenerateTerrain();
+            bool fullRegen = previousHeightMultiplier != heightMultiplier || previousOctaves != octaves || noiseScale != previousNoiseScale
+                || previousWidth != width || previousDepth != depth || previousLacunarity != lacunarity || previousMeshScale != meshScale;
+            bool needsColor = previousWaterLevelOffset != waterLevelOffset;
+            if (fullRegen)
+            {
+                GenerateTerrain();
+            }
+            else if (needsColor)
+            {
+                CreateColors();
+                mesh.colors = meshColors;
+            }
+
+            previousWaterLevelOffset = waterLevelOffset;
+            previousHeightMultiplier = heightMultiplier;
+            previousOctaves = octaves;
+            previousNoiseScale = noiseScale;
         }
     }
 #endif

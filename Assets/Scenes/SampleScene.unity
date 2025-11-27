@@ -408,48 +408,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01070a8bb6d21ac44b2ee233aff97b02, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  xSize: 15
-  zSize: 15
-  meshScale: 38
-  heightCurve:
-    serializedVersion: 2
-    m_Curve: []
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  gradient:
-    serializedVersion: 2
-    key0: {r: 0, g: 0.3584906, b: 0.06583569, a: 1}
-    key1: {r: 0.19188322, g: 0.5283019, b: 0.20208149, a: 1}
-    key2: {r: 0.18356179, g: 0.7075472, b: 0.23497222, a: 0}
-    key3: {r: 0.39630747, g: 0.7830189, b: 0.2474635, a: 0}
-    key4: {r: 0.50150156, g: 0.9528302, b: 0.19326274, a: 0}
-    key5: {r: 0, g: 0, b: 0, a: 0}
-    key6: {r: 0, g: 0, b: 0, a: 0}
-    key7: {r: 0, g: 0, b: 0, a: 0}
-    ctime0: 0
-    ctime1: 25636
-    ctime2: 43176
-    ctime3: 52428
-    ctime4: 65535
-    ctime5: 0
-    ctime6: 0
-    ctime7: 0
-    atime0: 0
-    atime1: 65535
-    atime2: 0
-    atime3: 0
-    atime4: 0
-    atime5: 0
-    atime6: 0
-    atime7: 0
-    m_Mode: 0
-    m_ColorSpace: -1
-    m_NumColorKeys: 5
-    m_NumAlphaKeys: 2
-  noiseScale: 0
-  octaves: 0
-  lacunarity: 0
+  width: 236
+  depth: 236
+  meshScale: 2
+  heightMultiplier: 5
+  waterLevelOffset: 0
+  noiseScale: 0.098
+  octaves: 3
+  lacunarity: 1.22
+  persistence: 0.127
   seed: 0
 --- !u!4 &648265069
 Transform:
