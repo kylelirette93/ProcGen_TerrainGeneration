@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using Unity.Collections;
 public class MeshGenerator : MonoBehaviour
 {
     // Size of mesh.
@@ -10,6 +11,7 @@ public class MeshGenerator : MonoBehaviour
     [Header("Height Settings")]
     private AnimationCurve heightCurve;
     [SerializeField, Range(0, 100f)] private float heightMultiplier;
+    float[,] heightMap;
 
     [Header("Water Settings")]
     [SerializeField, Range(0f, 6f)] private float waterLevel;
@@ -138,6 +140,7 @@ public class MeshGenerator : MonoBehaviour
     private void CreateShape()
     {
         Vector2[] octaveOffsets = GetOffsetSeed();
+        GenerateHeightMap(octaveOffsets);
         // Amount of vertices is determined by size.
         vertices = new Vector3[(width + 1) * (depth + 1)];
         uvs = new Vector2[(width + 1) * (depth + 1)];
@@ -148,10 +151,24 @@ public class MeshGenerator : MonoBehaviour
             for (int x = 0; x <= width; x++) 
             {
                 // Calculate normalizedHeight of each vertex.
-                float vertHeight = CalculateHeight(x, z, octaveOffsets); 
+                float vertHeight = heightMap[x, z]; 
                 vertices[i] = new Vector3(x, vertHeight, z);
                 uvs[i] = new Vector2(x / (float)width, z / (float)depth);
                 i++;
+            }
+        }
+    }
+
+    private void GenerateHeightMap(Vector2[] octaveOffsets)
+    {
+        heightMap = new float[width + 1, depth + 1];
+
+        for (int z = 0; z <= depth; z++)
+        {
+            for (int x = 0; x <= width; x++)
+            {
+                float height = CalculateHeight(x, z, octaveOffsets);
+                heightMap[x, z] = height;
             }
         }
     }
@@ -222,15 +239,17 @@ public class MeshGenerator : MonoBehaviour
 
         // Lerp between min and max height to get actual height.
         float actualHeight = Mathf.Lerp(minimumTerrainHeight, maximumTerrainHeight, height);
+        float shoreHeight = 2f;
 
         if (actualHeight < waterLevel)
         {
             float waterDepth = Mathf.InverseLerp(waterLevel, minimumTerrainHeight, actualHeight);
             return Color.Lerp(water, deepWater, waterDepth);
         }
-        else if (actualHeight >= waterLevel && height < 0.1f)
+        else if (actualHeight >= waterLevel && actualHeight < waterLevel + shoreHeight)
         {
-            return Color.Lerp(sand, water, actualHeight - waterLevel + 0.1f);
+            float shoreDepth = Mathf.InverseLerp(waterLevel, waterLevel + shoreHeight, actualHeight);
+            return Color.Lerp(water, sand, shoreDepth);
         }
         if (height > 0.7f)
         {
@@ -246,7 +265,7 @@ public class MeshGenerator : MonoBehaviour
         }
         else
         {
-            return sand; // Beach color above water.
+            return sand; // Default to sand.
         }
     }
 
