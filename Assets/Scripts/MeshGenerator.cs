@@ -6,7 +6,6 @@ public class MeshGenerator : MonoBehaviour
     [Header("Mesh Size Settings")]
     [SerializeField, Range(15, 500)] private int width;
     [SerializeField, Range(15, 500)] private int depth;
-    [SerializeField, Min(1)] private int meshScale;
 
     [Header("Height Settings")]
     private AnimationCurve heightCurve;
@@ -44,11 +43,33 @@ public class MeshGenerator : MonoBehaviour
     float previousWaterLevelOffset;
     int previousWidth;
     int previousDepth;
-    int previousMeshScale;
     float previousLacunarity;
     float previousPersistence;
     float previousFallOffStart;
     float previousFallOffStrength;
+    #endregion
+
+    #region Properties
+    public float WaterLevel
+    {
+        get { return waterLevel; }
+        set { waterLevel = value; }
+    }
+    public float HeightMultiplier
+    {
+        get { return heightMultiplier; }
+        set { heightMultiplier = value; }
+    }
+    public float Lacunarity
+    {
+        get { return lacunarity; }
+        set { lacunarity = value; }
+    }
+    public float Persistence
+    {
+        get { return persistence; }
+        set { persistence = value; }
+    }
     #endregion
 
     private void Awake()
@@ -80,7 +101,7 @@ public class MeshGenerator : MonoBehaviour
         }
     }
 
-    private void GenerateTerrain()
+    public void GenerateTerrain()
     {
         GenerateMesh();
         CreateShape();
@@ -127,7 +148,7 @@ public class MeshGenerator : MonoBehaviour
             for (int x = 0; x <= width; x++) 
             {
                 // Calculate normalizedHeight of each vertex.
-                float vertHeight = CalculateHeight(x, z, octaveOffsets);    
+                float vertHeight = CalculateHeight(x, z, octaveOffsets); 
                 vertices[i] = new Vector3(x, vertHeight, z);
                 uvs[i] = new Vector2(x / (float)width, z / (float)depth);
                 i++;
@@ -207,7 +228,11 @@ public class MeshGenerator : MonoBehaviour
             float waterDepth = Mathf.InverseLerp(waterLevel, minimumTerrainHeight, actualHeight);
             return Color.Lerp(water, deepWater, waterDepth);
         }
-        else if (height > 0.7f)
+        else if (actualHeight >= waterLevel && height < 0.1f)
+        {
+            return Color.Lerp(sand, water, actualHeight - waterLevel + 0.1f);
+        }
+        if (height > 0.7f)
         {
             return Color.Lerp(mountain, snow, (height - 0.7f) / 0.15f); // Blend to snow.
         }
@@ -292,9 +317,8 @@ public class MeshGenerator : MonoBehaviour
         if (Application.isPlaying && mesh != null)
         {
             bool fullRegen = previousHeightMultiplier != heightMultiplier || previousOctaves != octaves || noiseScale != previousNoiseScale
-                || previousWidth != width || previousDepth != depth || previousLacunarity != lacunarity ||
-                previousMeshScale != meshScale || previousFallOffStart != fallOffStart ||
-                previousFallOffStrength != fallOffStrength || previousPersistence != persistence;
+                || previousWidth != width || previousDepth != depth || previousLacunarity != lacunarity || previousFallOffStart != fallOffStart
+                ||previousFallOffStrength != fallOffStrength || previousPersistence != persistence;
             if (fullRegen)
             {
                 GenerateTerrain();
