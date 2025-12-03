@@ -1,84 +1,120 @@
 using UnityEngine;
 
+/// <summary>
+/// Class responsible for modifying terrain via sliders. I simply like the look of old GUI, it's clean.
+/// </summary>
 public class TerrainModifier : MonoBehaviour
 {
     [SerializeField] MeshGenerator meshGenerator;
-    private Rect windowRect = new Rect(20, 20, 300, 400);
-    bool showWindow = false;
 
-    float heightMultiplier = 1; // Default height multiplier.
-    float waterLevel = 0.001f; // Default water level
-    float lacunarity = 0.001f; // Default lacunarity
-    float persistence = 0.001f; // Default persistence
+    [Header("UI Settings")]
+    [SerializeField] private Rect terrainWindowRect = new Rect(20, 20, 300, 400);
+    [SerializeField] private Rect cameraWindowRect = new Rect(20, 500, 300, 200);
 
+    #region Default Terrain Modifier Values
+    private float heightMultiplier = 1; // Default height multiplier.
+    private float waterLevel = 0.001f; // Default water level
+    private float lacunarity = 0.001f; // Default lacunarity
+    private float persistence = 0.001f; // Default persistence
+    #endregion
+
+    #region Label and Slider Values
+    // Label values.
+    private float labelXPos = 10;
+    private float labelYPos = 30;
+    private float labelWidth = 280;
+    private float labelHeight = 20;
+    private float labelSpacing = 60;
+
+    // Slider values.
+    private float sliderXPos = 10;
+    private float sliderWidth = 200;
+    private float sliderHeight = 30;
+    private float sliderSpacing = 20;
+    #endregion
+
+    // Dirty flag values.
     private float prevHeightMultiplier, prevWaterLevel, prevLacunarity, prevPersistence;
+    private bool valuesDirty = false;
 
-    bool valuesDirty = false;
-
+    private bool showTerrainWindow = false;
 
     private void Update()
     {
         if (Input.GetKeyDown(KeyCode.Space)) 
         {
-            showWindow = !showWindow;
+            ToggleTerrainWindow();
         }
     }
-    void OnGUI()
+
+    /// <summary>
+    /// Toggles terrain modification window on and off.
+    /// </summary>
+    private void ToggleTerrainWindow()
     {
-        if (showWindow)
+        showTerrainWindow = !showTerrainWindow;
+    }
+    private void OnGUI()
+    {
+        if (showTerrainWindow)
         {
-            windowRect = GUI.Window(0, windowRect, TerrainWindow, "Terrain Modifier");
+            terrainWindowRect = GUI.Window(0, terrainWindowRect, TerrainWindow, "Terrain Modifier");
+            // Dirty flag to check if values changed.
             if (valuesDirty)
             {
                 ApplyTerrainModifications();
                 valuesDirty = false;
             }
         }
+        cameraWindowRect = GUI.Window(1, cameraWindowRect, CameraWindow, "Camera Controls");      
     }
 
-    void TerrainWindow(int windowID)
+    private void TerrainWindow(int windowID)
     {
-        float yPos = 30;
-        float spacing = 60;
+        labelYPos = 30;
+        DrawSlider("Terrain Height", ref heightMultiplier, ref prevHeightMultiplier, 0f, 100f);
 
-        GUI.Label(new Rect(10, yPos, 280, 20), "Terrain Height: " + heightMultiplier.ToString("F2"));
-        heightMultiplier = GUI.HorizontalSlider(new Rect(10, yPos + 20, 200, 30), heightMultiplier, 0f, 100f);
-        if (heightMultiplier != prevHeightMultiplier)
-        {
-            valuesDirty = true;
-            prevHeightMultiplier = heightMultiplier;
-        }
-        yPos += spacing;
+        DrawSlider("Water Level", ref waterLevel, ref prevWaterLevel, 0f, 6f);
 
-        GUI.Label(new Rect(10, yPos, 280, 20), "Water Level: " + waterLevel.ToString("F2"));
-        waterLevel = GUI.HorizontalSlider(new Rect(10, yPos + 20, 200, 30), waterLevel, 0f, 6f);
-        if (waterLevel != prevWaterLevel)
-        {
-            valuesDirty = true;
-            prevWaterLevel = waterLevel;
-        }
-        yPos += spacing;
+        DrawSlider("Irregularity", ref lacunarity, ref prevLacunarity, 0f, 4f);
 
-        GUI.Label(new Rect(10, yPos, 280, 20), "Irregularity: " + lacunarity.ToString("F2"));
-        lacunarity = GUI.HorizontalSlider(new Rect(10, yPos + 20, 200, 30), lacunarity, 0f, 4f);
-        if (lacunarity != prevLacunarity)
-        {
-            valuesDirty = true;
-            prevLacunarity = lacunarity;
-        }
-        yPos += spacing;
-
-        GUI.Label(new Rect(10, yPos, 280, 20), "Roughness: " + persistence.ToString("F2"));
-        persistence = GUI.HorizontalSlider(new Rect(10, yPos + 20, 200, 30), persistence, 0f, 1f);
-        if (persistence != prevPersistence)
-        {
-            valuesDirty = true;
-            prevPersistence = persistence;
-        }
-        yPos += spacing;
+        DrawSlider("Roughness", ref persistence, ref prevPersistence, 0f, 1f);
     }
 
-    void ApplyTerrainModifications()
+    private void CameraWindow(int windowID)
+    {
+        GUI.Label(new Rect(10, 30, 280, 20), "WASD: Move Camera");
+        GUI.Label(new Rect(10, 60, 280, 20), "Mouse: Look Around");
+        GUI.Label(new Rect(10, 90, 280, 20), "Scroll Wheel: Zoom In/Out");
+        GUI.Label(new Rect(10, 120, 280, 20), "Space: Lock Camera");
+    }
+
+    private void DrawSlider(string labelText, ref float currentValue, ref float previousValue, float minValue, float maxValue)
+    {
+        // Labels the slider.
+        GUI.Label(new Rect(labelXPos, labelYPos, labelWidth, labelHeight), labelText + ": " + currentValue.ToString("F2"));
+        // Draw the slider.
+        float sliderY = labelYPos + sliderSpacing;
+        float newValue = GUI.HorizontalSlider(new Rect(sliderXPos, sliderY, sliderWidth, sliderHeight), currentValue, minValue, maxValue);
+        CheckDirty(ref newValue, ref previousValue);
+        currentValue = newValue;
+        labelYPos += labelSpacing;
+    }
+
+    private void CheckDirty(ref float value, ref float previousValue)
+    {
+        // If the values changed, I mark the dirty flag.
+        if (value != previousValue)
+        {
+            valuesDirty = true;
+            previousValue = value;
+        }
+    }
+
+    /// <summary>
+    /// Applies actual modifications to terrain based on slider values.
+    /// </summary>
+    private void ApplyTerrainModifications()
     {
         meshGenerator.HeightMultiplier = heightMultiplier;
         meshGenerator.WaterLevel = waterLevel;

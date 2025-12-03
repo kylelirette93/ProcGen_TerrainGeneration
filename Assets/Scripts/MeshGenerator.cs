@@ -1,9 +1,7 @@
 using UnityEngine;
 using System;
-using Unity.Collections;
 public class MeshGenerator : MonoBehaviour
 {
-    // Size of mesh.
     [Header("Mesh Size Settings")]
     [SerializeField, Range(15, 500)] private int width;
     [SerializeField, Range(15, 500)] private int depth;
@@ -11,16 +9,16 @@ public class MeshGenerator : MonoBehaviour
     [Header("Height Settings")]
     private AnimationCurve heightCurve;
     [SerializeField, Range(0, 100f)] private float heightMultiplier;
-    float[,] heightMap;
+    private float[,] heightMap;
 
     [Header("Water Settings")]
     [SerializeField, Range(0f, 6f)] private float waterLevel;
 
     [Header("Noise Settings")]
-    [SerializeField, Range(0.001f, 1f)] float noiseScale;
-    [SerializeField, Range(1, 16)] int octaves;
-    [SerializeField, Range(1f, 4f)] float lacunarity;
-    [SerializeField, Range(0f, 1f)] float persistence;
+    [SerializeField, Range(0.001f, 1f)] private float noiseScale;
+    [SerializeField, Range(1, 16)] private int octaves;
+    [SerializeField, Range(1f, 4f)] private float lacunarity;
+    [SerializeField, Range(0f, 1f)] private float persistence;
     [SerializeField] int seed;
 
     [Header("Map Falloff Settings")]
@@ -31,27 +29,28 @@ public class MeshGenerator : MonoBehaviour
 
     #region Mesh Data
     // Position of each vertex of mesh.
-    Vector3[] vertices;
-    Color[] meshColors;
-    Vector2[] uvs;
+    private Vector3[] vertices;
+    private Color[] meshColors;
+    private Vector2[] uvs;
     // Triangles that connect the mesh.
-    int[] triangles;
+    private int[] triangles;
     private Mesh mesh;
-    float minimumTerrainHeight;
-    float maximumTerrainHeight;
-    float previousHeightMultiplier;
-    int previousOctaves;
-    float previousNoiseScale;
-    float previousWaterLevelOffset;
-    int previousWidth;
-    int previousDepth;
-    float previousLacunarity;
-    float previousPersistence;
-    float previousFallOffStart;
-    float previousFallOffStrength;
+    private float minimumTerrainHeight;
+    private float maximumTerrainHeight;
+    private float previousHeightMultiplier;
+    private int previousOctaves;
+    private float previousNoiseScale;
+    private float previousWaterLevelOffset;
+    private int previousWidth;
+    private int previousDepth;
+    private float previousLacunarity;
+    private float previousPersistence;
+    private float previousFallOffStart;
+    private float previousFallOffStrength;
     #endregion
 
     #region Properties
+    // Specifically for access through terrain modifier class for UI sliders.
     public float WaterLevel
     {
         get { return waterLevel; }
@@ -83,6 +82,9 @@ public class MeshGenerator : MonoBehaviour
         GenerateTerrain();
     }
 
+    /// <summary>
+    /// Initialize a default height curve for terrain.
+    /// </summary>
     private void InitializeDefaultTerrainHeight()
     {
         if (heightCurve == null || heightCurve.length == 0)
@@ -94,15 +96,17 @@ public class MeshGenerator : MonoBehaviour
                 new Keyframe(1f, 1f)
             );  
 
-
             // Smooth tangetns to transition between curves.
             for (int i = 0; i < heightCurve.length; i++)
             {
-                heightCurve.SmoothTangents(i, 0f);
+                heightCurve.SmoothTangents(i, 1.0f);
             }
         }
     }
 
+    /// <summary>
+    /// Handles terrain generation process. Could be seperated into classes, but for simplicity this class isn't that big really.
+    /// </summary>
     public void GenerateTerrain()
     {
         GenerateMesh();
@@ -126,10 +130,13 @@ public class MeshGenerator : MonoBehaviour
         }
         #endregion
         CreateTriangles();
-        CreateColors();
+        GenerateColors();
         UpdateMesh();
     }
 
+    /// <summary>
+    /// Generates the mesh itself.
+    /// </summary>
     private void GenerateMesh()
     {
         // Create mesh with filter.
@@ -137,28 +144,20 @@ public class MeshGenerator : MonoBehaviour
         GetComponent<MeshFilter>().mesh = mesh;
     }
 
+    /// <summary>
+    /// Creates shape of mesh.
+    /// </summary>
     private void CreateShape()
     {
         Vector2[] octaveOffsets = GetOffsetSeed();
         GenerateHeightMap(octaveOffsets);
-        // Amount of vertices is determined by size.
-        vertices = new Vector3[(width + 1) * (depth + 1)];
-        uvs = new Vector2[(width + 1) * (depth + 1)];
-
-        // Assign positions to vertices.
-        for (int i = 0, z = 0; z <= depth; z++)
-        {
-            for (int x = 0; x <= width; x++) 
-            {
-                // Calculate normalizedHeight of each vertex.
-                float vertHeight = heightMap[x, z]; 
-                vertices[i] = new Vector3(x, vertHeight, z);
-                uvs[i] = new Vector2(x / (float)width, z / (float)depth);
-                i++;
-            }
-        }
+        CreateMeshData(heightMap);
     }
 
+    /// <summary>
+    /// Generates height map based on perlin noise.
+    /// </summary>
+    /// <param name="octaveOffsets">The offset data passed to height calculation.</param>
     private void GenerateHeightMap(Vector2[] octaveOffsets)
     {
         heightMap = new float[width + 1, depth + 1];
@@ -173,6 +172,34 @@ public class MeshGenerator : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Generates mesh data based on height map.
+    /// </summary>
+    /// <param name="heightMap">The height map previously calculated, stored in vertices data.</param>
+    private void CreateMeshData(float[,] heightMap)
+    {
+        // Amount of vertices is determined by size.
+        vertices = new Vector3[(width + 1) * (depth + 1)];
+        uvs = new Vector2[(width + 1) * (depth + 1)];
+
+        // Assign positions to vertices.
+        for (int i = 0, z = 0; z <= depth; z++)
+        {
+            for (int x = 0; x <= width; x++)
+            {
+                // Calculate normalizedHeight of each vertex.
+                float vertHeight = heightMap[x, z];
+                vertices[i] = new Vector3(x, vertHeight, z);
+                uvs[i] = new Vector2(x / (float)width, z / (float)depth);
+                i++;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Generates an array of offsets for each octave.
+    /// </summary>
+    /// <returns>Returns the array of offsets generated.</returns>
     private Vector2[] GetOffsetSeed()
     {
         System.Random prng = new System.Random(seed);
@@ -188,6 +215,9 @@ public class MeshGenerator : MonoBehaviour
         return octaveOffsets;
     }
 
+    /// <summary>
+    /// Creates triangles for mesh based on vertices.
+    /// </summary>
     private void CreateTriangles()
     {
         // Each triangle has 3 vertices and each square has 2 triangles.
@@ -213,9 +243,11 @@ public class MeshGenerator : MonoBehaviour
         }
     }
 
-    private void CreateColors()
+    /// <summary>
+    /// Generate vertex color data.
+    /// </summary>
+    private void GenerateColors()
     {
-        // Evaluate the heightGradient color based on normalizedHeight at a specific vertice.
         meshColors = new Color[vertices.Length];
 
         for (int z = 0; z < vertices.Length; z++)
@@ -223,57 +255,84 @@ public class MeshGenerator : MonoBehaviour
             // Get's normalized normalizedHeight between min and max values.
             float normalizedHeight = Mathf.InverseLerp(minimumTerrainHeight, maximumTerrainHeight, vertices[z].y);
             normalizedHeight = Mathf.Clamp01(normalizedHeight);
-            // Evaluats heightGradient based on normalizedHeight.
+            // Get mesh color based on height.
             meshColors[z] = ColorBasedOnHeight(normalizedHeight);
         }
     }
 
+    /// <summary>
+    /// Colors the terrain based on height zones.
+    /// </summary>
+    /// <param name="height">The normalized height of terrain.</param>
+    /// <returns></returns>
     private Color ColorBasedOnHeight(float height)
     {
+        #region Define Color Zones
         Color snow = new Color(0.95f, 0.95f, 0.95f);
-        Color mountain = new Color(0.62f, 0.42f, 0.26f);
-        Color grass = new Color(0.2f, 0.6f, 0.1f);
+        Color mountain = new Color(0.4f, 0.25f, 0.1f);
+        Color grass = new Color(0.15f, 0.8f, 0.15f);
         Color sand = new Color(0.85f, 0.75f, 0.55f);
         Color water = new Color(0.2f, 0.4f, 0.6f);
         Color deepWater = new Color(0.1f, 0.2f, 0.4f);
+        #endregion
 
-        // Lerp between min and max height to get actual height.
-        float actualHeight = Mathf.Lerp(minimumTerrainHeight, maximumTerrainHeight, height);
         float shoreHeight = 2f;
+        float normalizedWaterLevel = Mathf.InverseLerp(minimumTerrainHeight, maximumTerrainHeight, waterLevel);
+        float normalizedShoreHeight = Mathf.InverseLerp(minimumTerrainHeight, maximumTerrainHeight, waterLevel + shoreHeight);
 
-        if (actualHeight < waterLevel)
+        if (height < normalizedWaterLevel)
         {
-            float waterDepth = Mathf.InverseLerp(waterLevel, minimumTerrainHeight, actualHeight);
-            return Color.Lerp(water, deepWater, waterDepth);
+            // Blend from deep water at 0 to shallow water.
+            float normalizedWaterDepth = Mathf.InverseLerp(normalizedWaterLevel, 0f, height);
+            return Color.Lerp(water, deepWater, normalizedWaterDepth);
         }
-        else if (actualHeight >= waterLevel && actualHeight < waterLevel + shoreHeight)
+        else if (height >= normalizedWaterLevel && height < normalizedShoreHeight)
         {
-            float shoreDepth = Mathf.InverseLerp(waterLevel, waterLevel + shoreHeight, actualHeight);
-            return Color.Lerp(water, sand, shoreDepth);
+            // Blend from water to sand at shore.
+            float normalizedShoreDepth = Mathf.InverseLerp(normalizedWaterLevel, normalizedShoreHeight, height);
+            return Color.Lerp(water, sand, normalizedShoreDepth);
         }
         if (height > 0.7f)
         {
-            return Color.Lerp(mountain, snow, (height - 0.7f) / 0.15f); // Blend to snow.
+            // Blend from mountain to snow.
+            float blendFactor = Mathf.InverseLerp(0.7f, 0.85f, height);
+            return Color.Lerp(mountain, snow, blendFactor); 
         }
         else if (height > 0.4f)
         {
-            return Color.Lerp(grass, mountain, (height - 0.4f) / 0.25f); // Blend to mountain.
+            // Blend from grass to mountain.
+            float blendFactor = Mathf.InverseLerp(0.4f, 0.65f, height);
+            return Color.Lerp(grass, mountain, blendFactor); 
         }
         else if (height > 0.1f)
         {
-            return Color.Lerp(sand, grass, (height - 0.1f) / 0.2f); // Blend to green for grass.
+            // Blend from sand to grass.
+            float blendFactor = Mathf.InverseLerp(0.1f, 0.35f, height);
+            return Color.Lerp(sand, grass, blendFactor); 
         }
         else
         {
-            return sand; // Default to sand.
+            // Base color for terrain.
+            return sand; 
         }
     }
 
+    /// <summary>
+    /// Calculates height of a vertex.
+    /// </summary>
+    /// <param name="x">Coordinate at width of map.</param>
+    /// <param name="z">Coordinate at depth of map.</param>
+    /// <param name="octaveOffsets">Offset data applied to sample noise.</param>
+    /// <returns></returns>
     private float CalculateHeight(int x, int z, Vector2[] octaveOffsets)
     {
         float amplitude = 2f;
         float frequency = 1;
         float height = 0;
+        const float RANGE_STRETCH_FACTOR = 2f;
+        const float MID_POINT = 2f;
+        const float RANGE_CENTER_SHIFT = 1f;
+        const float MAX_NORMALIZED_DISTANCE = 1f;
 
         // Max dimension for consistent terrain scaling.
         float maxDimension = Mathf.Max(width, depth);
@@ -287,9 +346,10 @@ public class MeshGenerator : MonoBehaviour
             float sampleX = normalizedX / noiseScale * frequency + octaveOffsets[i].x;
             float sampleZ = normalizedZ / noiseScale * frequency + octaveOffsets[i].y;
 
-            float perlinValue = (Mathf.PerlinNoise(sampleX, sampleZ)) * 2 - 1;
-            // Normalize perlin value for normalizedHeight curve.
-            height += heightCurve.Evaluate((perlinValue + 1f) / 2f) * amplitude;
+            // Generate sample noise and stretch to -1 to 1 range. To account for peaks and valleys.
+            float perlinValue = (Mathf.PerlinNoise(sampleX, sampleZ)) * RANGE_STRETCH_FACTOR - RANGE_CENTER_SHIFT;
+            // Apply normalized perlin value to height curve.
+            height += heightCurve.Evaluate((perlinValue + RANGE_CENTER_SHIFT) / RANGE_STRETCH_FACTOR) * amplitude;
             // Amplitude decreases each octave.
             amplitude *= persistence;
             // Lacunarity increases frequency each octave.
@@ -299,25 +359,34 @@ public class MeshGenerator : MonoBehaviour
         float finalHeight = height * heightMultiplier;
 
         // Calculate distance from center.
-        float centerX = width / 2f;
-        float centerZ = depth / 2f;
+        float centerX = width / MID_POINT;
+        float centerZ = depth / MID_POINT;
+        // Calculate normalized distance from center.
         float distanceX = Mathf.Abs(x - centerX) / centerX;
         float distanceZ = Mathf.Abs(z - centerZ) / centerZ;
+        // Square distance for falloff.
         float distanceFromCenter = Mathf.Max(distanceX, distanceZ);
 
         // Apply falloff at edges of terrain.
         if (distanceFromCenter > fallOffStart)
         {
-            float fallOff = (distanceFromCenter - fallOffStart) / (1f - fallOffStart);
+            // Area of falloff effect.
+            float fallOffZone = MAX_NORMALIZED_DISTANCE - fallOffStart;
+            // Falloff is calculated based on distance of vertex from falloff start.
+            float fallOff = (distanceFromCenter - fallOffStart) / fallOffZone;
+            // Normalize for curve evaluation.
             fallOff = Mathf.Clamp01(fallOff);
-
-            float fallOffValue = 1f - (fallOffCurve.Evaluate(fallOff) * fallOffStrength);
+            // Apply falloff curve and strength to the final height.
+            float fallOffValue = MAX_NORMALIZED_DISTANCE - (fallOffCurve.Evaluate(fallOff) * fallOffStrength);
             finalHeight *= fallOffValue;
         }
         return finalHeight;
     }
 
-  
+    
+    /// <summary>
+    /// Updates mesh with new data.
+    /// </summary>
     private void UpdateMesh()
     {
         // Clear old mesh data and update.
