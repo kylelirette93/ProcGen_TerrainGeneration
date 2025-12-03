@@ -76,9 +76,9 @@ public class TerrainModifier : MonoBehaviour
 
         DrawSlider("Water Level", ref waterLevel, ref prevWaterLevel, 0f, 6f);
 
-        DrawSlider("Irregularity", ref lacunarity, ref prevLacunarity, 0f, 4f);
+        DrawSlider("Lacunarity", ref lacunarity, ref prevLacunarity, 0f, 4f);
 
-        DrawSlider("Roughness", ref persistence, ref prevPersistence, 0f, 1f);
+        DrawSlider("Persistence", ref persistence, ref prevPersistence, 0f, 1f);
     }
 
     private void CameraWindow(int windowID)
